@@ -128,6 +128,7 @@ def create_input_processor(model_path_or_dir: str, tokenizer):
         config = ModelConfig.from_pretrained(model_path_or_dir,
                                              trust_remote_code=True)
         model_config = config.pretrained_config
+        #model_config.vision_config.temporal_patch_size = 1
     except (ValueError, EnvironmentError):
         config = None
 

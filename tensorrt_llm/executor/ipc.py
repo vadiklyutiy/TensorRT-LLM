@@ -33,7 +33,7 @@ class ZeroMqQueue:
                  is_server: bool,
                  is_async: bool = False,
                  name: Optional[str] = None,
-                 use_hmac_encryption: bool = True):
+                 use_hmac_encryption: bool = False):
         '''
         Parameters:
             address (tuple[str, Optional[bytes]], optional): The address (tcp-ip_port, hmac_auth_key) for the IPC. Defaults to None. If hmac_auth_key is None and use_hmac_encryption is False, the queue will not use HMAC encryption.

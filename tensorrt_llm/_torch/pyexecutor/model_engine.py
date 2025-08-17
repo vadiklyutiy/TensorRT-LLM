@@ -983,6 +983,7 @@ class PyTorchModelEngine(ModelEngine):
             lora_config=lora_config,
             allreduce_strategy=self.pytorch_backend_config.allreduce_strategy,
             **kwargs)
+        #config.pretrained_config.vision_config.temporal_patch_size = 1
 
         validate_and_set_kv_cache_quant(
             config, self.pytorch_backend_config.kv_cache_dtype)

@@ -10,6 +10,7 @@ from transformers.models.qwen2_vl.image_processing_qwen2_vl import smart_resize
 
 from tensorrt_llm.inputs.multimodal import MultimodalParams
 
+from ..._utils import nvtx_range_debug
 from ...functional import RopeEmbeddingUtils, RotaryScalingType
 from ...inputs import (ExtraProcessedInputs, InputProcessor, TextPrompt,
                        register_input_processor)
@@ -341,11 +342,14 @@ class Qwen2VLInputProcessorBase(InputProcessor):
         text_prompt, mm_data, mm_processor_kwargs = inputs.get("prompt"), \
                         inputs.get("multi_modal_data", {}), inputs.get("mm_processor_kwargs", {})
 
-        processed_inputs = self._preprocess(text_prompt, mm_data,
-                                            mm_processor_kwargs)
+        with nvtx_range_debug("transformers input preprocess"):
+
+            processed_inputs = self._preprocess(
+                text_prompt, mm_data,
+                mm_processor_kwargs)  #{"temporal_patch_size": 1}
 
         if not mm_data:
-            fused_input_ids = processed_inputs['input_ids']
+            fused_input_ids = processed_inputs['input_ids'][0]
             return fused_input_ids.to(torch.int32).tolist(), {}
 
         pixel_values = processed_inputs.get('pixel_values', None)
@@ -355,7 +359,8 @@ class Qwen2VLInputProcessorBase(InputProcessor):
         multimodal_data = {}
         if pixel_values is not None:
             multimodal_data["image"] = {
-                "pixel_values": pixel_values,
+                "pixel_values":
+                pixel_values,  #.to(dtype=self.model_config.torch_dtype),
                 "image_grid_thw": processed_inputs.get('image_grid_thw')
             }
         if pixel_values_videos is not None:
@@ -394,7 +399,10 @@ class Qwen2VisionModelBase:
         model = model_class.from_pretrained(
             model_path,
             torch_dtype=self.pretrained_config.torch_dtype,
-            attn_implementation='flash_attention_2').eval()
+            attn_implementation='flash_attention_2',
+            #config=self.pretrained_config,
+            #ignore_mismatched_sizes=True
+        ).eval()
         self.visual = model.visual.to(self.device)
 
     def _to_device(
@@ -475,7 +483,9 @@ class Qwen2VisionModelBase:
             )  # TODO: remove this once we have the shared tensor
             image_grid_thw = self._to_device(image_grid_thw)
             pixel_values = pixel_values.to(self.visual.dtype)
-            embeds.append(self.visual(pixel_values, grid_thw=image_grid_thw))
+            with nvtx_range_debug("VLM forward", color="green"):
+                embed = self.visual(pixel_values, grid_thw=image_grid_thw)
+            embeds.append(embed)
 
         if pixel_values_videos is not None:
             pixel_values_videos = self._to_device(pixel_values_videos)
@@ -609,13 +619,14 @@ class Qwen2VLModelBase(PreTrainedModel):
 
         input_ids, input_embeds = fuse_input_embeds(self.llm.model.embed_tokens,
                                                     input_ids, mm_embeds)
-        output_prob = self.llm.forward(
-            attn_metadata=attn_metadata,
-            input_ids=input_ids,
-            position_ids=position_ids,
-            inputs_embeds=input_embeds,
-            return_context_logits=return_context_logits,
-            mrope_config=mrope_config)
+        with nvtx_range_debug("LLM forward", color="blue"):
+            output_prob = self.llm.forward(
+                attn_metadata=attn_metadata,
+                input_ids=input_ids,
+                position_ids=position_ids,
+                inputs_embeds=input_embeds,
+                return_context_logits=return_context_logits,
+                mrope_config=mrope_config)
 
         logger.debug(f'output shape: {output_prob.shape}')
         return output_prob

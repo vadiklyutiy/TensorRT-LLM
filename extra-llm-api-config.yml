@@ -1,0 +1,8 @@
+kv_cache_config:
+    enable_block_reuse: false
+    free_gpu_memory_fraction: 0.6
+
+      #scheduler_config:
+      #    capacity_scheduler_policy: 'MAX_UTILIZATION'
+
+    use_cuda_graphs: true
