@@ -121,7 +121,7 @@ endef
 	@echo "Pulling docker image: $(IMAGE_WITH_TAG)"
 	docker pull $(IMAGE_WITH_TAG)
 
-DOCKER_RUN_OPTS ?= --rm -it --ipc=host --ulimit stack=67108864 $(if $(filter 0,$(IS_ROOTLESS)),--ulimit memlock=-1)
+DOCKER_RUN_OPTS ?= -it --ipc=host --ulimit stack=67108864 $(if $(filter 0,$(IS_ROOTLESS)),--ulimit memlock=-1)
 DOCKER_RUN_ARGS   ?=
 # Check if NVIDIA_VISIBLE_DEVICES is set and not empty
 NVIDIA_VISIBLE_DEVICES_VAL = $(shell echo $$NVIDIA_VISIBLE_DEVICES)
@@ -161,6 +161,7 @@ endif
     		--env "CCACHE_DIR=$(CCACHE_DIR)" \
     		--env "CCACHE_BASEDIR=$(CODE_DIR)" \
     		--env "CONAN_HOME=$(CONAN_DIR)" \
+			-p 8000:8000 \
     		--workdir $(WORK_DIR) \
     		--hostname $(shell hostname)-$* \
     		--name $(CONTAINER_NAME)-$*-$(USER_NAME) \

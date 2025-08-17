@@ -57,6 +57,11 @@ from .harmony_adapter import (HarmonyAdapter, handle_non_streaming_response,
 TIMEOUT_KEEP_ALIVE = 5  # seconds.
 
 
+import nvtx
+
+profiler = nvtx.Profile()
+
+
 class OpenAIServer:
 
     def __init__(self,
@@ -425,6 +430,8 @@ class OpenAIServer:
                 postproc_args=postproc_args,
             )
 
+
+            #profiler.enable()
             promise = self.llm.generate_async(
                 inputs=prompt,
                 sampling_params=sampling_params,
@@ -433,6 +440,9 @@ class OpenAIServer:
                 lora_request=request.lora_request,
                 disaggregated_params=disaggregated_params
             )
+            #profiler.disable()
+
+
             asyncio.create_task(self.await_disconnected(raw_request, promise))
             if not self.postproc_worker_enabled:
                 postproc_args.tokenizer = self.tokenizer
